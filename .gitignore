@@ -1,0 +1,21 @@
+# Binaries and object files
+*.o
+*.obj
+*.exe
+*.out
+group_project
+gen_graph
+cpu_test
+
+# Results and data
+data/
+results/
+logs/
+*.csv
+*.nsys-rep
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
