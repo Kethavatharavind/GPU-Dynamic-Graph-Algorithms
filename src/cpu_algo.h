@@ -14,7 +14,7 @@
 
 using namespace std;
 
-// Simple timer helper for benchmarking CPU vs GPU
+// timer helper
 struct my_timer {
     chrono::high_resolution_clock::time_point t0;
 
@@ -28,9 +28,7 @@ struct my_timer {
     }
 };
 
-// Represents a single dynamic edge update from updates.txt
-// 'I u v' -> ins = true  (insert edge between u and v)
-// 'D u v' -> ins = false (delete edge between u and v)
+// edge update: I = insert, D = delete
 struct edge_op {
     int u;
     int v;
@@ -51,13 +49,13 @@ struct edge_pair {
     }
 };
 
-// Undirected graph in Compressed Sparse Row (CSR) format for GPU execution
+// undirected graph in csr format
 struct csr_graph {
-    int n = 0;                  // number of vertices
-    int m = 0;                  // number of directed entries (2 * undirected edges)
-    vector<int> row;            // row offsets (size n + 1)
-    vector<int> col;            // neighbor column indices (size m)
-    vector<int> deg;            // vertex degrees (size n)
+    int n = 0;
+    int m = 0;
+    vector<int> row;
+    vector<int> col;
+    vector<int> deg;
 
     void from_adj(const vector<vector<int>>& adj) {
         n = (int)adj.size();
@@ -81,7 +79,7 @@ struct csr_graph {
     }
 };
 
-// Simple undirected graph with sorted neighbor lists for CPU updates
+// dynamic graph with sorted adjacency list
 struct dyn_graph {
     int n = 0;
     long long num_edges = 0;
@@ -92,7 +90,7 @@ struct dyn_graph {
 
     bool valid_edge(int u, int v) const {
         if (u < 0 || u >= n || v < 0 || v >= n) return false;
-        if (u == v) return false; // no self-loops
+        if (u == v) return false;
         return true;
     }
 
@@ -106,7 +104,7 @@ struct dyn_graph {
 
     bool add_edge(int u, int v) {
         if (!valid_edge(u, v)) return false;
-        if (has_edge(u, v)) return false; // already present
+        if (has_edge(u, v)) return false;
 
         auto it_u = lower_bound(adj[u].begin(), adj[u].end(), v);
         adj[u].insert(it_u, v);
@@ -140,16 +138,15 @@ struct dyn_graph {
     }
 };
 
-// Degree ordering comparison to avoid double counting triangles
+// degree check to avoid double counting
 inline bool deg_less(int a, int deg_a, int b, int deg_b) {
     return (deg_a < deg_b) || (deg_a == deg_b && a < b);
 }
 
-// Count common neighbors between two sorted neighbor lists
+// count common neighbors between two sorted lists
 inline long long intersect_cnt(const vector<int>& a, const vector<int>& b) {
     if (a.empty() || b.empty()) return 0;
 
-    // Binary search if one list is significantly smaller than the other
     if (a.size() * 8 < b.size()) {
         long long cnt = 0;
         for (size_t i = 0; i < a.size(); ++i) {
@@ -165,7 +162,6 @@ inline long long intersect_cnt(const vector<int>& a, const vector<int>& b) {
         return cnt;
     }
 
-    // Two-pointer merge intersection
     size_t ia = 0, ib = 0;
     long long cnt = 0;
     while (ia < a.size() && ib < b.size()) {
@@ -182,7 +178,7 @@ inline long long intersect_cnt(const vector<int>& a, const vector<int>& b) {
     return cnt;
 }
 
-// CPU Static Triangle Counting using degree-based orientation
+// static triangle counting on cpu
 inline long long cpu_static_tc(const dyn_graph& g) {
     long long total = 0;
     for (int u = 0; u < g.n; ++u) {
@@ -205,7 +201,7 @@ inline long long cpu_static_tc(const dyn_graph& g) {
     return total;
 }
 
-// CPU Dynamic Triangle Counting: updates triangle count incrementally per batch
+// dynamic triangle counting updates
 inline void cpu_dynamic_tc(dyn_graph& g,
                            const vector<edge_op>& batch,
                            long long& tri_cnt) {
@@ -229,7 +225,7 @@ inline void cpu_dynamic_tc(dyn_graph& g,
     }
 }
 
-// Union-Find data structure with path compression and union-by-rank
+// union find with path compression
 struct union_find {
     vector<int> parent;
     vector<int> rnk;
@@ -245,7 +241,6 @@ struct union_find {
     int find(int x) {
         int root = x;
         while (root != parent[root]) root = parent[root];
-        // Path compression
         int curr = x;
         while (curr != root) {
             int nxt = parent[curr];
@@ -273,7 +268,7 @@ struct union_find {
     }
 };
 
-// CPU Static Connected Components using Union-Find
+// static connected components on cpu
 inline int cpu_static_cc(const dyn_graph& g, vector<int>& comp) {
     union_find uf;
     uf.init(g.n);
@@ -288,21 +283,19 @@ inline int cpu_static_cc(const dyn_graph& g, vector<int>& comp) {
     return uf.num_cc;
 }
 
-// CPU Dynamic Connected Components:
-// Handles insertions in O(alpha(n)) with Union-Find; recomputes on deletions.
+// dynamic connected components updates
 inline int cpu_dynamic_cc(dyn_graph& g,
                           const vector<edge_op>& batch,
                           vector<int>& comp) {
-    bool has_deletion = false;
+    bool has_del = false;
     for (size_t i = 0; i < batch.size(); ++i) {
         if (!batch[i].ins && g.has_edge(batch[i].u, batch[i].v)) {
-            has_deletion = true;
+            has_del = true;
             break;
         }
     }
 
-    if (has_deletion) {
-        // Apply updates to graph then recompute
+    if (has_del) {
         for (size_t i = 0; i < batch.size(); ++i) {
             if (batch[i].ins) g.add_edge(batch[i].u, batch[i].v);
             else g.del_edge(batch[i].u, batch[i].v);
@@ -310,7 +303,6 @@ inline int cpu_dynamic_cc(dyn_graph& g,
         return cpu_static_cc(g, comp);
     }
 
-    // Insertions only: merge components incrementally
     union_find uf;
     uf.init(g.n);
     for (int i = 0; i < g.n; ++i) uf.parent[i] = comp[i];
@@ -326,7 +318,6 @@ inline int cpu_dynamic_cc(dyn_graph& g,
 
     for (int i = 0; i < g.n; ++i) comp[i] = uf.find(i);
 
-    // Count unique roots
     vector<int> roots;
     roots.reserve(g.n);
     for (int i = 0; i < g.n; ++i) roots.push_back(comp[i]);
@@ -335,22 +326,19 @@ inline int cpu_dynamic_cc(dyn_graph& g,
     return (int)roots.size();
 }
 
-// Loads graph from a plain text file (.txt).
-// Format:
-// Line 1: n m  (number of vertices, number of edges)
-// Line 2..m+1: u v  (undirected edge connecting u and v)
+// read graph from text file
 inline dyn_graph load_graph(const string& path, int* skipped = nullptr) {
     ifstream fin(path);
     if (!fin) {
-        fprintf(stderr, "Error: cannot open graph text file %s\n", path.c_str());
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "cannot open graph file %s\n", path.c_str());
+        exit(1);
     }
 
     int n = 0;
     long long m = 0;
     if (!(fin >> n >> m) || n < 0 || m < 0) {
-        fprintf(stderr, "Error: invalid header format in %s\n", path.c_str());
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "invalid format in %s\n", path.c_str());
+        exit(1);
     }
 
     dyn_graph g(n);
@@ -366,15 +354,12 @@ inline dyn_graph load_graph(const string& path, int* skipped = nullptr) {
     return g;
 }
 
-// Loads dynamic updates from a plain text file (.txt).
-// Format:
-// I u v  -> Insert edge between u and v
-// D u v  -> Delete edge between u and v
+// read dynamic updates from text file
 inline vector<edge_op> load_updates(const string& path) {
     ifstream fin(path);
     if (!fin) {
-        fprintf(stderr, "Error: cannot open updates text file %s\n", path.c_str());
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "cannot open updates file %s\n", path.c_str());
+        exit(1);
     }
 
     vector<edge_op> ops;
@@ -394,5 +379,4 @@ inline vector<edge_op> load_updates(const string& path) {
     return ops;
 }
 
-#endif // CPU_ALGO_H
-
+#endif

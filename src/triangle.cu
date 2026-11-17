@@ -53,7 +53,7 @@ __device__ inline bool dev_deg_less(int a, int deg_a, int b, int deg_b) {
     return (deg_a < deg_b) || (deg_a == deg_b && a < b);
 }
 
-// 1 warp per oriented edge (u <_d v); counts triangles {u, v, w} with u <_d v <_d w
+// static triangle counting kernel
 __global__ void tc_static_warp_kernel(const int* row,
                                       const int* col,
                                       const int* eu,
@@ -88,8 +88,7 @@ __global__ void tc_static_warp_kernel(const int* row,
     }
 }
 
-// 1 warp per batch edge; uses sorted edge tie-breaking so each triangle in the
-// batch is counted once even when 2 or 3 edges of the triangle update together
+// batch update kernel for triangle counting
 __global__ void tc_batch_delta_kernel(const int* row,
                                       const int* col,
                                       const int* upd_u,
