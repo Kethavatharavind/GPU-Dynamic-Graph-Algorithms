@@ -3,6 +3,7 @@
 Course project for CS5658: GPU Programming (Group 16).
 
 ### Team Members
+
 - Arun Shyam (142301007)
 - D. Lakshmi Harsha (142301008)
 - K. Aravind (112301017)
@@ -17,10 +18,11 @@ In real-world graphs such as communication networks and social platforms, edges 
 This project focuses on implementing dynamic graph algorithms on NVIDIA GPUs using CUDA C/C++ to accelerate these updates. Specifically, we study and implement:
 
 1. **Dynamic Triangle Counting**
+
    - Static triangle counting baseline using degree-based ordering to avoid double counting.
    - Batch-dynamic updates tracking created and destroyed triangles across edge insertion and deletion batches.
-
 2. **Dynamic Connected Components**
+
    - Parallel connected components using Shiloach-Vishkin style hooking and pointer jumping.
    - Dynamic update handling for edge additions and edge removals.
 
@@ -31,16 +33,7 @@ We evaluate both algorithms against sequential CPU reference baselines to measur
 ```
 gpu-dynamic-graph-algorithms/
 ├── src/
-│   ├── triangle.cuh      # CUDA kernels for static and batch-dynamic triangle counting
-│   └── components.cuh    # CUDA kernels for parallel hooking & pointer jumping (CC)
-└── README.md
+│   ├── triangle.cu      # CUDA kernels for static and batch-dynamic triangle counting
+│   └── components.cu    # CUDA kernels for parallel hooking & pointer jumping (CC)
+└── README.m
 ```
-
-*(Note: Graph loader, CPU reference baselines, benchmark runner, and Slurm scripts are currently being staged and will be pushed in upcoming commits.)*
-
-## Environment & Prerequisites
-
-- **Language:** C++17 / CUDA C++
-- **Target GPU Architecture:** sm_75 (Turing) or higher
-- **HPC Environment:** Bhavani Cluster (Slurm workload manager)
-- **Compiler:** `nvcc` (CUDA 11.0+) / `g++` (C++17)

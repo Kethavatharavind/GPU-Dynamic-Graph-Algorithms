@@ -1,8 +1,21 @@
-#ifndef TRIANGLE_CUH
-#define TRIANGLE_CUH
+#ifndef TRIANGLE_CU
+#define TRIANGLE_CU
 
 #include "cpu_algo.h"
-#include "cuda_util.cuh"
+#include <cuda_runtime.h>
+
+#ifndef CUDA_CHECK
+#define CUDA_CHECK(call) \
+    do { \
+        cudaError_t err = (call); \
+        if (err != cudaSuccess) { \
+            fprintf(stderr, "CUDA error at %s:%d -> %s\n", __FILE__, __LINE__, cudaGetErrorString(err)); \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)
+#endif
+#define cuda_check CUDA_CHECK
+
 
 __device__ inline int dev_bsearch(const int* col, int lo, int hi, int key) {
     while (lo < hi) {

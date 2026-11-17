@@ -1,8 +1,21 @@
-#ifndef COMPONENTS_CUH
-#define COMPONENTS_CUH
+#ifndef COMPONENTS_CU
+#define COMPONENTS_CU
 
 #include "cpu_algo.h"
-#include "cuda_util.cuh"
+#include <cuda_runtime.h>
+
+#ifndef CUDA_CHECK
+#define CUDA_CHECK(call) \
+    do { \
+        cudaError_t err = (call); \
+        if (err != cudaSuccess) { \
+            fprintf(stderr, "CUDA error at %s:%d -> %s\n", __FILE__, __LINE__, cudaGetErrorString(err)); \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)
+#endif
+#define cuda_check CUDA_CHECK
+
 
 __global__ void cc_init_kernel(int* comp, int n) {
     int u = blockIdx.x * blockDim.x + threadIdx.x;
